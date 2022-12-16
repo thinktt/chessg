@@ -1,0 +1,28 @@
+@font-face {
+  font-family: enigmax;
+  src: url(fonts/enigmax.ttf);
+}
+
+
+@font-face {
+  font-family: iconmoon;
+  src: url(fonts/icomoon.ttf);
+}
+
+
+body {
+  background-color: black;
+  color: white;
+  font-family: enigmax;
+  font-weight: lighter;
+}
+
+#chessground {
+  width: 500px;
+  height: 500px;
+}
+
+cg-board {
+  background-color: #bfcfdd;
+}
+
