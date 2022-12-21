@@ -53,67 +53,52 @@ async function onMove(from, to) {
     promotion = await getUserPromotion(to)
     cg.set({ animation: { enabled: false } })
   }
-
+ 
   game.move({ from, to, promotion})
   gameHistory = game.history()
   window.gameHistory = gameHistory
+  updateBoard()
+  renderPgnView()
+}
 
-  cg.set({
-    fen: game.fen(),
-    check: game.in_check(),
-    movable: {
-      color: getTurn(game),
-      dests: getLeglaMoves(game),
-    },
-  })
+function goStart() {
+  console.log('go to start')
+  game.reset()
+  updateBoard()
+  renderPgnView()
+}
 
-  cg.set({ animation: { enabled: true } })
+function goEnd() {
+  for (const move of gameHistory) {
+    game.move(move) 
+  }
+  updateBoard()
+  renderPgnView()
 }
 
 function goBack() {
   const lastAlgebraMove = game.history().slice(-1)[0]
-  console.log(lastAlgebraMove)
   if (lastAlgebraMove && lastAlgebraMove.includes('=')) {
-    console.log('Howdy')
     cg.set({ animation: { enabled: false } })
   }
 
   game.undo()
   const lastMove = getLastMove(game)
-  cg.set({ 
-    fen: game.fen(),
-    check: game.in_check(),
-    movable: {
-      color: getTurn(game),
-      dests: getLeglaMoves(game),
-    },
-    turnColor: getTurn(game),
-    lastMove,
-  })
-
-  cg.set({ animation: { enabled: true } })
+  updateBoard()
+  renderPgnView()
 }
 
 function goForward() {
   const currentPosition = game.history().length
   const nextMove = gameHistory[currentPosition]
-  
-  console.log(currentPosition, nextMove)
+  if (nextMove && nextMove.includes('=')) { 
+    cg.set({ animation: { enabled: false } })
+  }
   
   if (!nextMove) return
   game.move(nextMove)
-
-  const lastMove = getLastMove(game)
-  cg.set({ 
-    fen: game.fen(),
-    check: game.in_check(),
-    movable: {
-      color: getTurn(game),
-      dests: getLeglaMoves(game),
-    },
-    turnColor: getTurn(game),
-    lastMove,
-  })
+  updateBoard()
+  renderPgnView()
 }
 
 
@@ -142,8 +127,12 @@ function getLastMove(game) {
 
 const goBackbutton = document.querySelector('#go-back-button')
 const goForwardButton = document.querySelector('#go-forward-button')
+const goStartButton = document.querySelector('#go-start-button')
+const goEnddButton = document.querySelector('#go-end-button')
+goStartButton.addEventListener('click', goStart)
 goBackbutton.addEventListener('click', goBack)
 goForwardButton.addEventListener('click', goForward)
+goEnddButton.addEventListener('click', goEnd)
 
 function isPromotion(fromSquare, toSquare) {
   const squareState = game.get(fromSquare)
@@ -151,7 +140,6 @@ function isPromotion(fromSquare, toSquare) {
   if (toSquare.includes('8') || toSquare.includes('1')) return true
   return false
 }
-
 
 
 let setPromotion = null
@@ -209,9 +197,38 @@ async function getUserPromotion(toSquare) {
   return piece
 }
 
+
+let pgnViewer = document.querySelector('.pgn-viewer')
+window.pgnViewer = pgnViewer
+function renderPgnView() {
+  let pgnHtml = ''
+  for (let i = 0; i < gameHistory.length; i += 2 ) {
+    const moveNumber = i === 0 ? 1 :  i/2 + 1
+    
+    let c = ''
+    if (game.history().length - 1 === i) c = 'highlight' 
+    
+    pgnHtml += html`
+      <span>${moveNumber}.</span>
+      <span class=${c}> ${gameHistory[i]} </span>
+    `
+    c = ''
+    if (game.history().length - 1 === i + 1) c = 'highlight' 
+
+    if (gameHistory[i+1]) {
+      pgnHtml += html`
+        <span class=${c}> ${gameHistory[i + 1]} </span>
+      ` 
+    }
+  }
+
+  while(pgnViewer.firstChild) pgnViewer.removeChild(pgnViewer.firstChild)
+  pgnViewer.insertAdjacentHTML('beforeend', pgnHtml)
+}
+
+
 function pickPromotion(piece) {
   if (setPromotion) setPromotion(piece) 
-  console.log('Howdy' +  piece)
 } 
 
 window.pickPromotion = pickPromotion

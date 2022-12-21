@@ -93,3 +93,6 @@ cg-board {
     opacity: 1;
 }
 
+.pgn-viewer .highlight {
+  background-color: green;
+}
