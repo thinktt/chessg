@@ -9,6 +9,62 @@
   src: url(fonts/icomoon.ttf);
 }
 
+.board-container {
+  width: 500px;
+  height: 500px;
+  position: relative;
+}
+
+#chessground {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+}
+
+.promotion-overlay {
+  visibility: hidden;
+  z-index: 4;
+  background: rgba(22,21,18,.7);
+  width: 100%;
+  height: 100%;
+  position: absolute;
+}
+
+.promotion-overlay square {
+  cursor: pointer;
+  border-radius: 50%;
+  background-color: #b0b0b0;
+  box-shadow: inset 0 0 25px 3px gray;
+  transition: all 150ms;
+  z-index: 2;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 12.5%;
+  height: 12.5%;
+  transition: all 150ms;
+}
+
+.promotion-overlay piece {
+  position: absolute;
+  top: 10%;
+  left: 10%;
+  width: 80%;
+  height: 80%;;
+  background-size: cover;
+  z-index: 5;
+  pointer-events: none;
+  transition: all 150ms;
+}
+
+.promotion-overlay square:hover piece {
+  transform: scale(120%);
+}
+
+.promotion-overlay square:hover {
+  box-shadow:inset 0 0 48px 8px #d64f00;
+  border-radius:0%;
+}
 
 body {
   background-color: black;
@@ -17,12 +73,23 @@ body {
   font-weight: lighter;
 }
 
-#chessground {
-  width: 500px;
-  height: 500px;
-}
+
 
 cg-board {
   background-color: #bfcfdd;
+}
+
+#promotoion-choice {
+  background: rgba(22,21,18,.7);
+  z-index: 205;
+  position: absolute;
+  width: var(--cg-width, 100%);
+  height: var(--cg-height, 100%);
+  right: 0;
+}
+
+#promotion-choice piece {
+    pointer-events: auto;
+    opacity: 1;
 }
 

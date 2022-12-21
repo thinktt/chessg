@@ -5,14 +5,35 @@
   <title>A Chess Board</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Chess Board">
+  <link rel="stylesheet" type="text/css" href="chessground.base.css">
+  <link rel="stylesheet" type="text/css" href="chessground.brown.css">
+  <link rel="stylesheet" href="maestro.css">
   <link rel="stylesheet" href="chessboard.css">
-  <link rel="stylesheet" type="text/css" href="/node_modules/chessground/assets/chessground.base.css">
-  <link rel="stylesheet" type="text/css" href="/node_modules/chessground/assets/chessground.brown.css">
-  <link rel="stylesheet" type="text/css" href="/node_modules/chessground/assets/chessground.cburnett.css">
 </head>
 <body>
 
-  <div id="chessground"></div>
+  <div class="board-container">
+    <div id="chessground"></div>
+    <div class="promotion-overlay cg-wrap">
+      <square style="top:0%; left: 0%">
+        <piece class="queen white"></piece>
+      </square>
+      <square style="top:12.5%; left: 0%">
+        <piece class="knight white"></piece>
+      </square>
+      <square style="top:25%; left: 0%">
+        <piece class="rook white"></piece>
+      </square>
+      <square style="top:37.5%; left: 0%">
+        <piece class="bishop white"></piece>
+      </square>
+    </div>
+  </div>
+  
+  <button id="go-back-button">Go Back</button>
+  <button id="go-back-button">Go Forward</button>
+ 
+
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.js"></script>
   <script src="chessboard.js" type="module"></script>
