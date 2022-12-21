@@ -29,6 +29,22 @@ const config = {
 const cg = Chessground(document.getElementById('chessground'), config);
 window.cg = cg
 window.game = game
+let gameHistory = []
+
+function updateBoard() {
+  const lastMove = getLastMove(game)
+  cg.set({ 
+    fen: game.fen(),
+    check: game.in_check(),
+    movable: {
+      color: getTurn(game),
+      dests: getLeglaMoves(game),
+    },
+    turnColor: getTurn(game),
+    lastMove,
+  })
+  cg.set({ animation: { enabled: true } })
+}
 
 
 async function onMove(from, to) {
@@ -38,8 +54,10 @@ async function onMove(from, to) {
     cg.set({ animation: { enabled: false } })
   }
 
-  console.log(from, to, promotion)
   game.move({ from, to, promotion})
+  gameHistory = game.history()
+  window.gameHistory = gameHistory
+
   cg.set({
     fen: game.fen(),
     check: game.in_check(),
@@ -76,6 +94,28 @@ function goBack() {
   cg.set({ animation: { enabled: true } })
 }
 
+function goForward() {
+  const currentPosition = game.history().length
+  const nextMove = gameHistory[currentPosition]
+  
+  console.log(currentPosition, nextMove)
+  
+  if (!nextMove) return
+  game.move(nextMove)
+
+  const lastMove = getLastMove(game)
+  cg.set({ 
+    fen: game.fen(),
+    check: game.in_check(),
+    movable: {
+      color: getTurn(game),
+      dests: getLeglaMoves(game),
+    },
+    turnColor: getTurn(game),
+    lastMove,
+  })
+}
+
 
 function getLeglaMoves(game)  {
   const dests = new Map();
@@ -99,8 +139,11 @@ function getLastMove(game) {
   return [ from, to ]
 }
 
+
 const goBackbutton = document.querySelector('#go-back-button')
+const goForwardButton = document.querySelector('#go-forward-button')
 goBackbutton.addEventListener('click', goBack)
+goForwardButton.addEventListener('click', goForward)
 
 function isPromotion(fromSquare, toSquare) {
   const squareState = game.get(fromSquare)
@@ -111,11 +154,9 @@ function isPromotion(fromSquare, toSquare) {
 
 
 
-
+let setPromotion = null
 async function getUserPromotion(toSquare) {
-
   const column = toSquare[0]
-
   const offSetMap = {
     'a' : 0,
     'b' : 12.5,
@@ -129,7 +170,7 @@ async function getUserPromotion(toSquare) {
   const leftOffset = offSetMap[column]
 
   let color = 'black'
-  let queenTop = 74
+  let queenTop = 86.5
   let topOffsetIncrement = -12.5
   
   if (toSquare.includes('8')) { 
@@ -138,36 +179,39 @@ async function getUserPromotion(toSquare) {
     topOffsetIncrement = 12.5
   }
 
-
   const knightTop = queenTop + topOffsetIncrement
   const roookTop = knightTop + topOffsetIncrement
   const bishopTop = roookTop + topOffsetIncrement
 
-  const promotionChoiceEl = html`
+  const promoChoiceHtml = html`
     <div class="promotion-overlay cg-wrap">
-      <square style="top:${queenTop}%; left: ${leftOffset}%">
+      <square onclick="pickPromotion('q')" style="top:${queenTop}%; left: ${leftOffset}%">
         <piece class="queen ${color}"></piece>
       </square>
-      <square style="top:${knightTop}%; left: ${leftOffset}%">
+      <square onclick="pickPromotion('n')" style="top:${knightTop}%; left: ${leftOffset}%">
         <piece class="knight ${color}"></piece>
       </square>
-      <square style="top:${roookTop}%; left: ${leftOffset}%">
+      <square onclick="pickPromotion('r')" style="top:${roookTop}%; left: ${leftOffset}%">
         <piece class="rook ${color}"></piece>
       </square>
-      <square style="top:${bishopTop}%; left: ${leftOffset}%">
+      <square onclick="pickPromotion('b')" style="top:${bishopTop}%; left: ${leftOffset}%">
         <piece class="bishop ${color}"></piece>
       </square>
     </div>
   `
 
   const boardContainerEl = document.querySelector('.board-container')
-  boardContainerEl.insertAdjacentHTML('beforeend', promotionChoiceEl)
+  boardContainerEl.insertAdjacentHTML('beforeend', promoChoiceHtml)
 
-  return 'q'
+  const piece = await new Promise(resolve => setPromotion = resolve)
+ 
+  boardContainerEl.removeChild(document.querySelector('.promotion-overlay'))
+  return piece
 }
 
+function pickPromotion(piece) {
+  if (setPromotion) setPromotion(piece) 
+  console.log('Howdy' +  piece)
+} 
 
-
-function promote(square, piece) {
-
-}
+window.pickPromotion = pickPromotion
