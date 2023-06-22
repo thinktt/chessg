@@ -6,26 +6,46 @@ import { html } from './pageTools.js'
 const url = 'http://localhost:8080'
 const lichessToken = localStorage.getItem('lichessToken')
 let yowKingToken = null
+const players = [
+  'Fischer', 'Karpov', 'Tal', 'Morphy', 'Alekhine', 'Anand', 
+  'Andressen', 'Blackburne', 'Kramnik', 'Capablanca', 'Botvinnik', 'Spassky',
+  'Petrosian', 'Marshall', 'Lasker', 'Steinitz', 'Euwe', 'Polgar',
+  'Evans', 'Wizard'
+]
 
-
-// Get a reference to your template
 const template = document.querySelector('#my-template')
-
-// Get a reference to the parent element where the content will be inserted
-const parent = document.querySelector('#parent-element')
-
-for (let i = 0; i < 5; i++) {
+const tournamentRoom = document.querySelector('#tournament-room')
+let boardNumber = 1
+let boards = []
+for (let i = 0; i < players.length; i=i+2) {
   const clone = document.importNode(template.content, true)
-  clone.querySelector('div').id = `board${i + 1}`
-  parent.appendChild(clone)
-  // Optionally, modify the clone - here we'll change the paragraph text
-  // clone.querySelector('p').textContent = `This is card number ${i + 1}`
+  const whitePlayer = players[i]
+  const blackPlayer = players[i + 1]
+  const label = `Board ${boardNumber}: ${whitePlayer} vs ${blackPlayer}`
+  clone.querySelector('p').textContent = label
+  clone.querySelector('.board-container').id = `board${boardNumber}`
+  tournamentRoom.appendChild(clone)
+
+  const board = setupChessBoard(`board${boardNumber}`, whitePlayer, blackPlayer)
+  boards.push(board)
+  boardNumber++
 }
 
-const board1 = setupChessBoard('board1', 'Tal', 'Karpov')
+// Optionally, modify the clone - here we'll change the paragraph text
+
+
+
+
+
+// const board1 = setupChessBoard('board1', 'Fischer', 'Karpov')
+// const board2 = setupChessBoard('board2', 'Tal', 'Morphy')
+
+// window.board1 = board1
+// window.board2 = board2
 
 await doAuthFlow()
-await playGame(board1)
+// playGame(board1)
+// playGame(board2)
 
 async function doAuthFlow() {
   let err = null
@@ -50,7 +70,7 @@ async function doAuthFlow() {
 }
 
 async function playGame(board) {
-  const { id, whitePlayer, blackPlayer, cg, game } = board
+  const { whitePlayer, blackPlayer } = board
 
   const moves = []
   let move = ''
@@ -65,8 +85,7 @@ async function playGame(board) {
       continue
     }
     moves.push(move)
-    makeMove(move, game)
-    updateBoard(game, cg)
+    board.makeMove(move)
     player = player === whitePlayer ? blackPlayer : whitePlayer
   }
 }
@@ -102,8 +121,11 @@ async function getMove(cmpName, moves) {
 }
 
 function setupChessBoard(id, whitePlayer, blackPlayer) {
+  console.log(`Setting up board ${id} for ${whitePlayer} vs ${blackPlayer}`)
+  const el = document.getElementById(id)
   const game = new Chess()
-  const config = {
+
+  const cg = Chessground(document.getElementById(id), {
     orientation: 'white',  
     turnColor: 'white',
     // viewOnly: true,
@@ -124,12 +146,17 @@ function setupChessBoard(id, whitePlayer, blackPlayer) {
     drawable: {
       enabled: false,
     },
+  })
+
+  const makeMove = (move) => {
+    makeGameMove(move, game)
+    updateBoard(game, cg)
   }
-  const cg = Chessground(document.getElementById(id), config);
-  return {id, whitePlayer, blackPlayer, cg, game}
+  
+  return {id, whitePlayer, blackPlayer, cg, game, makeMove}
 }
 
-function makeMove(move, game) {
+function makeGameMove(move, game) {
   // divide move into from, to, and promotion
   const from = move.slice(0, 2)
   const to = move.slice(2, 4)
