@@ -1,51 +1,45 @@
 import { Chessground } from './node_modules/chessground/chessground.js';
-import { html } from './pageTools.js'
+// import { html } from './pageTools.js'
 
 // fetch with authorization token
 // const url = 'http://yowking.yeoldwizard.com'
 const url = 'http://localhost:8080'
 const lichessToken = localStorage.getItem('lichessToken')
 let yowKingToken = null
-const players = [
-  'Fischer', 'Karpov', 'Tal', 'Morphy', 'Alekhine', 'Anand', 
-  'Andressen', 'Blackburne', 'Kramnik', 'Capablanca', 'Botvinnik', 'Spassky',
-  'Petrosian', 'Marshall', 'Lasker', 'Steinitz', 'Euwe', 'Polgar',
-  'Evans', 'Wizard'
-]
+// const players = [
+//   'Fischer', 'Karpov', 'Tal', 'Morphy', 'Alekhine', 'Anand', 
+//   'Anderssen', 'Blackburne', 'Kramnik', 'Capablanca', 'Botvinnik', 'Spassky',
+//   'Petrosian', 'Marshall', 'Lasker', 'Steinitz', 'Euwe', 'Polgar',
+//   'Evans', 'Wizard'
+// ]
+const players = ['Anderssen', 'Blackburne']
 
 const template = document.querySelector('#my-template')
 const tournamentRoom = document.querySelector('#tournament-room')
 let boardNumber = 1
 let boards = []
 for (let i = 0; i < players.length; i=i+2) {
-  const clone = document.importNode(template.content, true)
+  const el = document.importNode(template.content, true)
   const whitePlayer = players[i]
   const blackPlayer = players[i + 1]
   const label = `Board ${boardNumber}: ${whitePlayer} vs ${blackPlayer}`
-  clone.querySelector('p').textContent = label
-  clone.querySelector('.board-container').id = `board${boardNumber}`
-  tournamentRoom.appendChild(clone)
+  el.querySelector('p').textContent = label
+  el.querySelector('.board-container').id = `board${boardNumber}`
+  tournamentRoom.appendChild(el)
 
   const board = setupChessBoard(`board${boardNumber}`, whitePlayer, blackPlayer)
+  board.el = el
   boards.push(board)
   boardNumber++
 }
 
-// Optionally, modify the clone - here we'll change the paragraph text
-
-
-
-
-
-// const board1 = setupChessBoard('board1', 'Fischer', 'Karpov')
-// const board2 = setupChessBoard('board2', 'Tal', 'Morphy')
-
-// window.board1 = board1
-// window.board2 = board2
-
 await doAuthFlow()
-// playGame(board1)
-// playGame(board2)
+for (const board of boards) {
+  playGame(board)
+}
+
+
+
 
 async function doAuthFlow() {
   let err = null
