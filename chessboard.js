@@ -8,14 +8,24 @@ const lichessToken = localStorage.getItem('lichessToken')
 let yowKingToken = null
 
 
+// Get a reference to your template
+const template = document.querySelector('#my-template')
 
-const game = new Chess()
-let gameHistory = []
-const cg = setupChessBoard()
-window.cg = cg
+// Get a reference to the parent element where the content will be inserted
+const parent = document.querySelector('#parent-element')
+
+for (let i = 0; i < 5; i++) {
+  const clone = document.importNode(template.content, true)
+  clone.querySelector('div').id = `board${i + 1}`
+  parent.appendChild(clone)
+  // Optionally, modify the clone - here we'll change the paragraph text
+  // clone.querySelector('p').textContent = `This is card number ${i + 1}`
+}
+
+const board1 = setupChessBoard('board1', 'Tal', 'Karpov')
 
 await doAuthFlow()
-await playGame('Tal', 'Karpov')
+await playGame(board1)
 
 async function doAuthFlow() {
   let err = null
@@ -39,7 +49,9 @@ async function doAuthFlow() {
   yowKingToken = data.token
 }
 
-async function playGame(whitePlayer, blackPlayer) {
+async function playGame(board) {
+  const { id, whitePlayer, blackPlayer, cg, game } = board
+
   const moves = []
   let move = ''
   
@@ -53,8 +65,8 @@ async function playGame(whitePlayer, blackPlayer) {
       continue
     }
     moves.push(move)
-    makeMove(move)
-    updateBoard()
+    makeMove(move, game)
+    updateBoard(game, cg)
     player = player === whitePlayer ? blackPlayer : whitePlayer
   }
 }
@@ -89,7 +101,7 @@ async function getMove(cmpName, moves) {
   return move
 }
 
-function setupChessBoard() {
+function setupChessBoard(id, whitePlayer, blackPlayer) {
   const game = new Chess()
   const config = {
     orientation: 'white',  
@@ -101,7 +113,7 @@ function setupChessBoard() {
       dests: getLeglaMoves(game),
       showDests: false,
       events: {
-        after: onMove
+        // after: onMove
       }
 
     },
@@ -113,24 +125,20 @@ function setupChessBoard() {
       enabled: false,
     },
   }
-  const cg = Chessground(document.getElementById('chessground'), config);
-  // let gameHistory = []
-  return cg
+  const cg = Chessground(document.getElementById(id), config);
+  return {id, whitePlayer, blackPlayer, cg, game}
 }
 
-function makeMove(move) {
+function makeMove(move, game) {
   // divide move into from, to, and promotion
   const from = move.slice(0, 2)
   const to = move.slice(2, 4)
   const promotion = move.slice(4, 5)
   game.move({ from, to, promotion})
-  gameHistory = game.history()
+  // gameHistory = game.history()
 }
 
-
-
-
-function updateBoard() {
+function updateBoard(game, cg) {
   const lastMove = getLastMove(game)
   cg.set({ 
     fen: game.fen(),
@@ -145,62 +153,6 @@ function updateBoard() {
   cg.set({ animation: { enabled: true } })
 }
 
-window.onMove = onMove
-
-async function onMove(from, to) {
-  let promotion = null
-  if (isPromotion(from, to)) {
-    promotion = await getUserPromotion(to)
-    cg.set({ animation: { enabled: false } })
-  }
- 
-  game.move({ from, to, promotion})
-  gameHistory = game.history()
-  window.gameHistory = gameHistory
-  updateBoard()
-  renderPgnView()
-}
-
-function goStart() {
-  console.log('go to start')
-  game.reset()
-  updateBoard()
-  renderPgnView()
-}
-
-function goEnd() {
-  for (const move of gameHistory) {
-    game.move(move) 
-  }
-  updateBoard()
-  renderPgnView()
-}
-
-function goBack() {
-  const lastAlgebraMove = game.history().slice(-1)[0]
-  if (lastAlgebraMove && lastAlgebraMove.includes('=')) {
-    cg.set({ animation: { enabled: false } })
-  }
-
-  game.undo()
-  const lastMove = getLastMove(game)
-  updateBoard()
-  renderPgnView()
-}
-
-function goForward() {
-  const currentPosition = game.history().length
-  const nextMove = gameHistory[currentPosition]
-  if (nextMove && nextMove.includes('=')) { 
-    cg.set({ animation: { enabled: false } })
-  }
-  
-  if (!nextMove) return
-  game.move(nextMove)
-  updateBoard()
-  renderPgnView()
-}
-
 
 function getLeglaMoves(game)  {
   const dests = new Map();
@@ -208,14 +160,12 @@ function getLeglaMoves(game)  {
     const ms = game.moves({square: s, verbose: true});
     if (ms.length) dests.set(s, ms.map(m => m.to));
   });
-  return dests;
+  return dests
 }
 
-function getTurn(game) {
-  return (game.turn() === 'w') ? 'white' : 'black';
-}
 
 function getLastMove(game) {
+  window.game = game
   const moves = game.history({ verbose: true })
   const lastMove = moves.length ? moves.pop() : null
   if (!lastMove) return null
@@ -224,83 +174,143 @@ function getLastMove(game) {
   return [ from, to ]
 }
 
-
-const goBackbutton = document.querySelector('#go-back-button')
-const goForwardButton = document.querySelector('#go-forward-button')
-const goStartButton = document.querySelector('#go-start-button')
-const goEnddButton = document.querySelector('#go-end-button')
-goStartButton.addEventListener('click', goStart)
-goBackbutton.addEventListener('click', goBack)
-goForwardButton.addEventListener('click', goForward)
-goEnddButton.addEventListener('click', goEnd)
-
-function isPromotion(fromSquare, toSquare) {
-  const squareState = game.get(fromSquare)
-  if (squareState.type !== 'p') return false
-  if (toSquare.includes('8') || toSquare.includes('1')) return true
-  return false
+function getTurn(game) {
+  return (game.turn() === 'w') ? 'white' : 'black';
 }
 
 
-let setPromotion = null
-async function getUserPromotion(toSquare) {
-  const column = toSquare[0]
-  const offSetMap = {
-    'a' : 0,
-    'b' : 12.5,
-    'c' : 24.5,
-    'd' : 37,
-    'e' : 49.25,
-    'f' : 61.75,
-    'g' : 74.25,
-    'h' : 86.5,
-  }
-  const leftOffset = offSetMap[column]
 
-  let color = 'black'
-  let queenTop = 86.5
-  let topOffsetIncrement = -12.5
-  
-  if (toSquare.includes('8')) { 
-    color = 'white'
-    queenTop = 0
-    topOffsetIncrement = 12.5
-  }
-
-  const knightTop = queenTop + topOffsetIncrement
-  const roookTop = knightTop + topOffsetIncrement
-  const bishopTop = roookTop + topOffsetIncrement
-
-  const promoChoiceHtml = html`
-    <div class="promotion-overlay cg-wrap">
-      <square onclick="pickPromotion('q')" style="top:${queenTop}%; left: ${leftOffset}%">
-        <piece class="queen ${color}"></piece>
-      </square>
-      <square onclick="pickPromotion('n')" style="top:${knightTop}%; left: ${leftOffset}%">
-        <piece class="knight ${color}"></piece>
-      </square>
-      <square onclick="pickPromotion('r')" style="top:${roookTop}%; left: ${leftOffset}%">
-        <piece class="rook ${color}"></piece>
-      </square>
-      <square onclick="pickPromotion('b')" style="top:${bishopTop}%; left: ${leftOffset}%">
-        <piece class="bishop ${color}"></piece>
-      </square>
-    </div>
-  `
-
-  const boardContainerEl = document.querySelector('.board-container')
-  boardContainerEl.insertAdjacentHTML('beforeend', promoChoiceHtml)
-
-  const piece = await new Promise(resolve => setPromotion = resolve)
+// async function onMove(from, to) {
+//   let promotion = null
+//   if (isPromotion(from, to)) {
+//     promotion = await getUserPromotion(to)
+//     cg.set({ animation: { enabled: false } })
+//   }
  
-  boardContainerEl.removeChild(document.querySelector('.promotion-overlay'))
-  return piece
-}
+//   game.move({ from, to, promotion})
+//   gameHistory = game.history()
+//   window.gameHistory = gameHistory
+//   updateBoard()
+//   renderPgnView()
+// }
+
+// function goStart() {
+//   console.log('go to start')
+//   game.reset()
+//   updateBoard()
+//   renderPgnView()
+// }
+
+// function goEnd() {
+//   for (const move of gameHistory) {
+//     game.move(move) 
+//   }
+//   updateBoard()
+//   renderPgnView()
+// }
+
+// function goBack() {
+//   const lastAlgebraMove = game.history().slice(-1)[0]
+//   if (lastAlgebraMove && lastAlgebraMove.includes('=')) {
+//     cg.set({ animation: { enabled: false } })
+//   }
+
+//   game.undo()
+//   const lastMove = getLastMove(game)
+//   updateBoard()
+//   renderPgnView()
+// }
+
+// function goForward() {
+//   const currentPosition = game.history().length
+//   const nextMove = gameHistory[currentPosition]
+//   if (nextMove && nextMove.includes('=')) { 
+//     cg.set({ animation: { enabled: false } })
+//   }
+  
+//   if (!nextMove) return
+//   game.move(nextMove)
+//   updateBoard()
+//   renderPgnView()
+// }
+
+
+// const goBackbutton = document.querySelector('#go-back-button')
+// const goForwardButton = document.querySelector('#go-forward-button')
+// const goStartButton = document.querySelector('#go-start-button')
+// const goEnddButton = document.querySelector('#go-end-button')
+// goStartButton.addEventListener('click', goStart)
+// goBackbutton.addEventListener('click', goBack)
+// goForwardButton.addEventListener('click', goForward)
+// goEnddButton.addEventListener('click', goEnd)
+
+// function isPromotion(fromSquare, toSquare) {
+//   const squareState = game.get(fromSquare)
+//   if (squareState.type !== 'p') return false
+//   if (toSquare.includes('8') || toSquare.includes('1')) return true
+//   return false
+// }
+
+
+// let setPromotion = null
+// async function getUserPromotion(toSquare) {
+//   const column = toSquare[0]
+//   const offSetMap = {
+//     'a' : 0,
+//     'b' : 12.5,
+//     'c' : 24.5,
+//     'd' : 37,
+//     'e' : 49.25,
+//     'f' : 61.75,
+//     'g' : 74.25,
+//     'h' : 86.5,
+//   }
+//   const leftOffset = offSetMap[column]
+
+//   let color = 'black'
+//   let queenTop = 86.5
+//   let topOffsetIncrement = -12.5
+  
+//   if (toSquare.includes('8')) { 
+//     color = 'white'
+//     queenTop = 0
+//     topOffsetIncrement = 12.5
+//   }
+
+//   const knightTop = queenTop + topOffsetIncrement
+//   const roookTop = knightTop + topOffsetIncrement
+//   const bishopTop = roookTop + topOffsetIncrement
+
+//   const promoChoiceHtml = html`
+//     <div class="promotion-overlay cg-wrap">
+//       <square onclick="pickPromotion('q')" style="top:${queenTop}%; left: ${leftOffset}%">
+//         <piece class="queen ${color}"></piece>
+//       </square>
+//       <square onclick="pickPromotion('n')" style="top:${knightTop}%; left: ${leftOffset}%">
+//         <piece class="knight ${color}"></piece>
+//       </square>
+//       <square onclick="pickPromotion('r')" style="top:${roookTop}%; left: ${leftOffset}%">
+//         <piece class="rook ${color}"></piece>
+//       </square>
+//       <square onclick="pickPromotion('b')" style="top:${bishopTop}%; left: ${leftOffset}%">
+//         <piece class="bishop ${color}"></piece>
+//       </square>
+//     </div>
+//   `
+
+//   const boardContainerEl = document.querySelector('.board-container')
+//   boardContainerEl.insertAdjacentHTML('beforeend', promoChoiceHtml)
+
+//   const piece = await new Promise(resolve => setPromotion = resolve)
+ 
+//   boardContainerEl.removeChild(document.querySelector('.promotion-overlay'))
+//   return piece
+// }
 
 
 
-function pickPromotion(piece) {
-  if (setPromotion) setPromotion(piece) 
-} 
+// function pickPromotion(piece) {
+//   if (setPromotion) setPromotion(piece) 
+// } 
 
-window.pickPromotion = pickPromotion
+// window.pickPromotion = pickPromotion
