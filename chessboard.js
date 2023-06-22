@@ -1,35 +1,134 @@
 import { Chessground } from './node_modules/chessground/chessground.js';
 import { html } from './pageTools.js'
 
+// fetch with authorization token
+// const url = 'http://yowking.yeoldwizard.com'
+const url = 'http://localhost:8080'
+const lichessToken = localStorage.getItem('lichessToken')
+let yowKingToken = null
+
+
 
 const game = new Chess()
-const config = {
-  orientation: 'white',  
-  turnColor: 'white',
-  // viewOnly: true,
-  movable: {
-    free: false,
-    color: 'white',
-    dests: getLeglaMoves(game),
-    showDests: false,
-    events: {
-      after: onMove
-    }
+let gameHistory = []
+const cg = setupChessBoard()
+window.cg = cg
 
-  },
-  premovable: {
-    enabled: false,
-    showDests: true,
-  },
-  drawable: {
-    enabled: false,
-  },
+await doAuthFlow()
+await playGame('Tal', 'Karpov')
+
+async function doAuthFlow() {
+  let err = null
+  const res = await fetch(`${url}/token`, {
+    headers: {
+      'Authorization': 'Bearer ' + lichessToken
+    }
+  }).catch(e => err = e)
+  
+  if (err) {
+    console.log('error', err)
+    return
+  }
+  const data = await res.json()
+  
+  if (res.status !== 200) {
+    console.log(data.error)
+    return
+  }
+
+  yowKingToken = data.token
 }
 
-const cg = Chessground(document.getElementById('chessground'), config);
-window.cg = cg
-window.game = game
-let gameHistory = []
+async function playGame(whitePlayer, blackPlayer) {
+  const moves = []
+  let move = ''
+  
+  let err = null
+  let player = whitePlayer
+
+  while(err === null) {
+    move = await getMove(player, moves).catch(e => err = e)
+    if (err) {
+      console.log('error', err)
+      continue
+    }
+    moves.push(move)
+    makeMove(move)
+    updateBoard()
+    player = player === whitePlayer ? blackPlayer : whitePlayer
+  }
+}
+
+
+async function getMove(cmpName, moves) {
+  let err = null
+  const res = await fetch(`${url}/move-req`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + yowKingToken
+    },
+    body: JSON.stringify({ cmpName, moves })
+  }).catch(e => err = e)
+  if (err) {
+    throw err
+  }
+
+  const data = await res.json()
+
+  if (res.status !== 200) {
+    throw new Error(data.error)
+  }
+
+  const move = data.coordinateMove
+
+  if (!move) {
+    throw new Error('no move')
+  }
+
+  return move
+}
+
+function setupChessBoard() {
+  const game = new Chess()
+  const config = {
+    orientation: 'white',  
+    turnColor: 'white',
+    // viewOnly: true,
+    movable: {
+      free: false,
+      color: 'white',
+      dests: getLeglaMoves(game),
+      showDests: false,
+      events: {
+        after: onMove
+      }
+
+    },
+    premovable: {
+      enabled: false,
+      showDests: true,
+    },
+    drawable: {
+      enabled: false,
+    },
+  }
+  const cg = Chessground(document.getElementById('chessground'), config);
+  // let gameHistory = []
+  return cg
+}
+
+function makeMove(move) {
+  // divide move into from, to, and promotion
+  const from = move.slice(0, 2)
+  const to = move.slice(2, 4)
+  const promotion = move.slice(4, 5)
+  game.move({ from, to, promotion})
+  gameHistory = game.history()
+}
+
+
+
 
 function updateBoard() {
   const lastMove = getLastMove(game)
@@ -46,6 +145,7 @@ function updateBoard() {
   cg.set({ animation: { enabled: true } })
 }
 
+window.onMove = onMove
 
 async function onMove(from, to) {
   let promotion = null
@@ -197,34 +297,6 @@ async function getUserPromotion(toSquare) {
   return piece
 }
 
-
-let pgnViewer = document.querySelector('.pgn-viewer')
-window.pgnViewer = pgnViewer
-function renderPgnView() {
-  let pgnHtml = ''
-  for (let i = 0; i < gameHistory.length; i += 2 ) {
-    const moveNumber = i === 0 ? 1 :  i/2 + 1
-    
-    let c = ''
-    if (game.history().length - 1 === i) c = 'highlight' 
-    
-    pgnHtml += html`
-      <span>${moveNumber}.</span>
-      <span class=${c}> ${gameHistory[i]} </span>
-    `
-    c = ''
-    if (game.history().length - 1 === i + 1) c = 'highlight' 
-
-    if (gameHistory[i+1]) {
-      pgnHtml += html`
-        <span class=${c}> ${gameHistory[i + 1]} </span>
-      ` 
-    }
-  }
-
-  while(pgnViewer.firstChild) pgnViewer.removeChild(pgnViewer.firstChild)
-  pgnViewer.insertAdjacentHTML('beforeend', pgnHtml)
-}
 
 
 function pickPromotion(piece) {
