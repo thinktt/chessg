@@ -19,16 +19,17 @@ const tournamentRoom = document.querySelector('#tournament-room')
 let boardNumber = 1
 let boards = []
 for (let i = 0; i < players.length; i=i+2) {
-  const el = document.importNode(template.content, true)
+  const clone = document.importNode(template.content, true)
   const whitePlayer = players[i]
   const blackPlayer = players[i + 1]
   const label = `Board ${boardNumber}: ${whitePlayer} vs ${blackPlayer}`
-  el.querySelector('p').textContent = label
-  el.querySelector('.board-container').id = `board${boardNumber}`
-  tournamentRoom.appendChild(el)
+  clone.querySelector('p').textContent = label
+  clone.querySelector('.board-container').id = `board${boardNumber}`
+  tournamentRoom.appendChild(clone)
 
   const board = setupChessBoard(`board${boardNumber}`, whitePlayer, blackPlayer)
-  board.el = el
+  board.el = document.getElementById(`board${boardNumber}`)
+  board.scoreText = board.el.nextElementSibling.textContent 
   boards.push(board)
   boardNumber++
 }
@@ -64,7 +65,8 @@ async function doAuthFlow() {
 }
 
 async function playGame(board) {
-  const { whitePlayer, blackPlayer } = board
+  window.board = board
+  const { whitePlayer, blackPlayer, game } = board
 
   const moves = []
   let move = ''
@@ -81,7 +83,43 @@ async function playGame(board) {
     moves.push(move)
     board.makeMove(move)
     player = player === whitePlayer ? blackPlayer : whitePlayer
+    if (game.game_over()) {
+      console.log(`${board.id} game over called by chess.js`)
+      // console.log(board.game.pgn())
+      break
+    } 
   }
+
+  if (err) {
+    console.log('error', err)
+    return
+  }
+
+  if (game.in_checkmate()) {
+    if (game.turn === 'w') {
+      console.log('0-1')
+      board.scoreText.textContent = 'score: 0-1'
+    } else {
+      console.log('1-0')
+      board.scoreText.textContent = 'score: 1-0'
+    }
+    return
+  }
+  
+  const drawType = getDrawType(board.game)
+  console.log('0-0')
+  console.log(`draw by ${drawType}`)
+  board.scoreText.textContent = `score: 0-0 ${drawType}`
+
+}
+
+
+function getDrawType(game) {
+  if (game.insufficient_material()) return "material"
+  if (game.in_stalemate()) return "stalemate"
+  if (game.in_threefold_repetition()) return "threefold"
+  if (game.in_draw()) return "fiftyMove"
+  return "mutual"
 }
 
 
