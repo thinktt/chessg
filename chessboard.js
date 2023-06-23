@@ -29,7 +29,7 @@ for (let i = 0; i < players.length; i=i+2) {
 
   const board = setupChessBoard(`board${boardNumber}`, whitePlayer, blackPlayer)
   board.el = document.getElementById(`board${boardNumber}`)
-  board.scoreText = board.el.nextElementSibling.textContent 
+  board.scoreEl = board.el.nextElementSibling
   boards.push(board)
   boardNumber++
 }
@@ -98,10 +98,10 @@ async function playGame(board) {
   if (game.in_checkmate()) {
     if (game.turn === 'w') {
       console.log('0-1')
-      board.scoreText.textContent = 'score: 0-1'
+      board.scoreEl.textContent = 'score: 0-1'
     } else {
       console.log('1-0')
-      board.scoreText.textContent = 'score: 1-0'
+      board.scoreEl.textContent = 'score: 1-0'
     }
     return
   }
@@ -109,7 +109,7 @@ async function playGame(board) {
   const drawType = getDrawType(board.game)
   console.log('0-0')
   console.log(`draw by ${drawType}`)
-  board.scoreText.textContent = `score: 0-0 ${drawType}`
+  board.scoreEl.textContent = `score: 0-0 ${drawType}`
 
 }
 
