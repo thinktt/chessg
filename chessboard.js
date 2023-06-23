@@ -12,7 +12,9 @@ let yowKingToken = null
 //   'Petrosian', 'Marshall', 'Lasker', 'Steinitz', 'Euwe', 'Polgar',
 //   'Evans', 'Wizard'
 // ]
-const players = ['Anderssen', 'Blackburne']
+// const players = ['Anderssen', 'Blackburne']
+const players = ['Wizard', 'Wizard']
+
 
 const template = document.querySelector('#my-template')
 const tournamentRoom = document.querySelector('#tournament-room')
@@ -27,9 +29,7 @@ for (let i = 0; i < players.length; i=i+2) {
   clone.querySelector('.board-container').id = `board${boardNumber}`
   tournamentRoom.appendChild(clone)
 
-  const board = setupChessBoard(`board${boardNumber}`, whitePlayer, blackPlayer)
-  board.el = document.getElementById(`board${boardNumber}`)
-  board.scoreEl = board.el.nextElementSibling
+  const board = buildBoard(`board${boardNumber}`, whitePlayer, blackPlayer)
   boards.push(board)
   boardNumber++
 }
@@ -38,7 +38,6 @@ await doAuthFlow()
 for (const board of boards) {
   playGame(board)
 }
-
 
 
 
@@ -66,13 +65,17 @@ async function doAuthFlow() {
 
 async function playGame(board) {
   window.board = board
-  const { whitePlayer, blackPlayer, game } = board
+  const { whitePlayer, blackPlayer, game, moves } = board
 
-  const moves = []
   let move = ''
+  let heightSum = 0
+  let depthSum = 0
+  let avgHeight = 0
+  let avgDepth = 0
   
   let err = null
   let player = whitePlayer
+
 
   while(err === null) {
     move = await getMove(player, moves).catch(e => err = e)
@@ -80,9 +83,20 @@ async function playGame(board) {
       console.log('error', err)
       continue
     }
-    moves.push(move)
-    board.makeMove(move)
+    moves.push(move.coordinateMove)
+    board.makeMove(move.coordinateMove)
     player = player === whitePlayer ? blackPlayer : whitePlayer
+
+
+    heightSum += move.id || 0
+    depthSum += move.depth || 0
+    // get average to nearest whole number
+    avgHeight = Math.round(heightSum / moves.length)
+    avgDepth = Math.round(depthSum / moves.length)
+    board.updateHeight(avgHeight)
+    board.updateDepth(avgDepth)
+
+
     if (game.game_over()) {
       console.log(`${board.id} game over called by chess.js`)
       // console.log(board.game.pgn())
@@ -98,10 +112,10 @@ async function playGame(board) {
   if (game.in_checkmate()) {
     if (game.turn === 'w') {
       console.log('0-1')
-      board.scoreEl.textContent = 'score: 0-1'
+      board.updateScor('0-1')
     } else {
       console.log('1-0')
-      board.scoreEl.textContent = 'score: 1-0'
+      board.updateScore('1-0')
     }
     return
   }
@@ -109,7 +123,7 @@ async function playGame(board) {
   const drawType = getDrawType(board.game)
   console.log('0-0')
   console.log(`draw by ${drawType}`)
-  board.scoreEl.textContent = `score: 0-0 ${drawType}`
+  board.updateBoard(`0-0 ${drawType}`)
 
 }
 
@@ -137,27 +151,36 @@ async function getMove(cmpName, moves) {
     throw err
   }
 
-  const data = await res.json()
+  const move = await res.json()
 
   if (res.status !== 200) {
-    throw new Error(data.error)
+    throw new Error(move.error)
   }
 
-  const move = data.coordinateMove
+  // const move = data.coordinateMove
 
-  if (!move) {
+  if (!move?.coordinateMove) {
     throw new Error('no move')
   }
 
   return move
 }
 
-function setupChessBoard(id, whitePlayer, blackPlayer) {
+function buildBoard(id, whitePlayer, blackPlayer) {
   console.log(`Setting up board ${id} for ${whitePlayer} vs ${blackPlayer}`)
   const el = document.getElementById(id)
   const game = new Chess()
 
+  const premoves = [
+    'e2e4', 'c7c6', 'd2d4', 'd7d5', 'e4d5', 'c6d5', 'c2c4', 'g8f6', 
+    'b1c3', 'b8c6', 'g1f3', 'a7a6', 'f1e2', 'd5c4'
+  ]
+  for (const move of premoves) {
+    makeGameMove(move, game)
+  }
+
   const cg = Chessground(document.getElementById(id), {
+    fen: game.fen(),
     orientation: 'white',  
     turnColor: 'white',
     // viewOnly: true,
@@ -180,12 +203,35 @@ function setupChessBoard(id, whitePlayer, blackPlayer) {
     },
   })
 
-  const makeMove = (move) => {
+  const board = { 
+    id, 
+    whitePlayer, 
+    blackPlayer, 
+    cg, 
+    game,
+    moves: premoves || [],  
+  }
+
+  board.el = document.getElementById(`board${boardNumber}`)
+  board.scoreEl = board.el.nextElementSibling
+  board.heightEl = board.scoreEl.nextElementSibling
+  board.depthEl = board.heightEl.nextElementSibling
+
+  board.makeMove = (move) => {
     makeGameMove(move, game)
     updateBoard(game, cg)
   }
+  board.updateScore = (score) => {
+    board.scoreEl.textContent = `score: ${score}`
+  }
+  board.updateHeight = (height) => {
+    board.heightEl.textContent = `avg height: ${height}`
+  }
+  board.updateDepth = (depth) => {
+    board.depthEl.textContent = `avg depth: ${depth}`
+  }
   
-  return {id, whitePlayer, blackPlayer, cg, game, makeMove}
+  return board
 }
 
 function makeGameMove(move, game) {
