@@ -1,25 +1,39 @@
+import { start } from 'chessground/drag.js';
 import { Chessground } from './node_modules/chessground/chessground.js';
 // import { html } from './pageTools.js'
 
 // fetch with authorization token
 // const url = 'http://yowking.yeoldwizard.com'
-const url = 'http://localhost:8080'
+// const url = 'https://localhost:8443'
+const url = 'https://yowking.localhost'
+// const url = 'http://localhost:8082'
 const lichessToken = localStorage.getItem('lichessToken')
 let yowKingToken = null
+const players = [
+  'Fischer', 'Karpov', 'Tal', 'Morphy', 'Alekhine', 'Anand', 
+  'Anderssen', 'Blackburne', 'Kramnik', 'Capablanca', 'Botvinnik', 'Spassky',
+  'Petrosian', 'Marshall', 'Lasker', 'Steinitz', 'Euwe', 'Polgar',
+  'Evans', 'Wizard'
+]
 // const players = [
 //   'Fischer', 'Karpov', 'Tal', 'Morphy', 'Alekhine', 'Anand', 
-//   'Anderssen', 'Blackburne', 'Kramnik', 'Capablanca', 'Botvinnik', 'Spassky',
-//   'Petrosian', 'Marshall', 'Lasker', 'Steinitz', 'Euwe', 'Polgar',
-//   'Evans', 'Wizard'
+//   'Anderssen', 'Blackburne', 'Kramnik', 'Capablanca',
 // ]
-// const players = ['Anderssen', 'Blackburne']
-const players = ['Wizard', 'Wizard']
+
+// const premoves = [
+//    'e2e4', 'c7c6', 'd2d4', 'd7d5', 'e4d5', 'c6d5', 'c2c4', 'g8f6', 
+//   'b1c3', 'b8c6', 'g1f3', 'a7a6', 'f1e2', 'd5c4'
+// ]
+const premoves = []
+// let players = ['Fischer', 'Karpov', 'Tal', 'Morphy']
+
 
 
 const template = document.querySelector('#my-template')
 const tournamentRoom = document.querySelector('#tournament-room')
 let boardNumber = 1
 let boards = []
+window.boards = boards
 for (let i = 0; i < players.length; i=i+2) {
   const clone = document.importNode(template.content, true)
   const whitePlayer = players[i]
@@ -38,8 +52,6 @@ await doAuthFlow()
 for (const board of boards) {
   playGame(board)
 }
-
-
 
 async function doAuthFlow() {
   let err = null
@@ -63,38 +75,56 @@ async function doAuthFlow() {
   yowKingToken = data.token
 }
 
+const baseHeight = 1352823 
+const baseDepth = 8009
 async function playGame(board) {
-  window.board = board
-  const { whitePlayer, blackPlayer, game, moves } = board
+  // window.board = board
+  const { whitePlayer, blackPlayer, game } = board
 
-  let move = ''
+  // let move = ''
+  const moves = []
   let heightSum = 0
   let depthSum = 0
-  let avgHeight = 0
-  let avgDepth = 0
+  let startTime = Date.now()
+  let endTime = Date.now()
+  let lapseTime = 0
+  let baseDepth
   
   let err = null
   let player = whitePlayer
-
+  const gameId = board.id
 
   while(err === null) {
-    move = await getMove(player, moves).catch(e => err = e)
+    startTime = Date.now()
+    const move = await getMove(player, moves, gameId).catch(e => err = e)
     if (err) {
       console.log('error', err)
       continue
     }
+
+    endTime = Date.now()
+    lapseTime = endTime - startTime
     moves.push(move.coordinateMove)
     board.makeMove(move.coordinateMove)
     player = player === whitePlayer ? blackPlayer : whitePlayer
 
+    board.updateTime(`${lapseTime}ms`)
+    if (!baseDepth) baseDepth = move.depth
+    if (move.depth < baseDepth) baseDepth = move.depth
+    if (!move.depth) {
+      board.updateDepth('book')
+    } else {
+      board.updateDepth(`${move.depth} base: ${baseDepth}`)
+    }
 
-    heightSum += move.id || 0
-    depthSum += move.depth || 0
+    
+    // heightSum += move.id || 0
+    // depthSum += move.depth || 0
     // get average to nearest whole number
-    avgHeight = Math.round(heightSum / moves.length)
-    avgDepth = Math.round(depthSum / moves.length)
-    board.updateHeight(avgHeight)
-    board.updateDepth(avgDepth)
+    // avgHeight = Math.round(heightSum / moves.length)
+    // avgDepth = Math.round(depthSum / moves.length)
+    // board.updateHeight(`${avgHeight} base: ${baseHeight}`)
+
 
 
     if (game.game_over()) {
@@ -110,9 +140,9 @@ async function playGame(board) {
   }
 
   if (game.in_checkmate()) {
-    if (game.turn === 'w') {
+    if (game.turn() === 'w') {
       console.log('0-1')
-      board.updateScor('0-1')
+      board.updateScore('0-1')
     } else {
       console.log('1-0')
       board.updateScore('1-0')
@@ -137,7 +167,7 @@ function getDrawType(game) {
 }
 
 
-async function getMove(cmpName, moves) {
+async function getMove(cmpName, moves, gameId) {
   let err = null
   const res = await fetch(`${url}/move-req`, {
     method: 'POST',
@@ -145,7 +175,7 @@ async function getMove(cmpName, moves) {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer ' + yowKingToken
     },
-    body: JSON.stringify({ cmpName, moves })
+    body: JSON.stringify({ cmpName, moves, gameId })
   }).catch(e => err = e)
   if (err) {
     throw err
@@ -171,10 +201,6 @@ function buildBoard(id, whitePlayer, blackPlayer) {
   const el = document.getElementById(id)
   const game = new Chess()
 
-  const premoves = [
-    'e2e4', 'c7c6', 'd2d4', 'd7d5', 'e4d5', 'c6d5', 'c2c4', 'g8f6', 
-    'b1c3', 'b8c6', 'g1f3', 'a7a6', 'f1e2', 'd5c4'
-  ]
   for (const move of premoves) {
     makeGameMove(move, game)
   }
@@ -214,8 +240,9 @@ function buildBoard(id, whitePlayer, blackPlayer) {
 
   board.el = document.getElementById(`board${boardNumber}`)
   board.scoreEl = board.el.nextElementSibling
-  board.heightEl = board.scoreEl.nextElementSibling
-  board.depthEl = board.heightEl.nextElementSibling
+  board.timeEl = board.scoreEl.nextElementSibling
+  board.depthEl = board.timeEl.nextElementSibling
+  // board.heightEl = board.scoreEl.nextElementSibling
 
   board.makeMove = (move) => {
     makeGameMove(move, game)
@@ -224,11 +251,14 @@ function buildBoard(id, whitePlayer, blackPlayer) {
   board.updateScore = (score) => {
     board.scoreEl.textContent = `score: ${score}`
   }
+  board.updateTime = (time) => {
+    board.timeEl.textContent = `move time: ${time}`
+  }
   board.updateHeight = (height) => {
     board.heightEl.textContent = `avg height: ${height}`
   }
   board.updateDepth = (depth) => {
-    board.depthEl.textContent = `avg depth: ${depth}`
+    board.depthEl.textContent = `depth: ${depth}`
   }
   
   return board
