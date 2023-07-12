@@ -1,4 +1,3 @@
-import { start } from 'chessground/drag.js';
 import { Chessground } from './node_modules/chessground/chessground.js';
 // import { html } from './pageTools.js'
 
@@ -101,14 +100,13 @@ async function playGame(board) {
       console.log('error', err)
       continue
     }
+    
 
-    endTime = Date.now()
-    lapseTime = endTime - startTime
     moves.push(move.coordinateMove)
     board.makeMove(move.coordinateMove)
     player = player === whitePlayer ? blackPlayer : whitePlayer
 
-    board.updateTime(`${lapseTime}ms`)
+
     if (!baseDepth) baseDepth = move.depth
     if (move.depth < baseDepth) baseDepth = move.depth
     if (!move.depth) {
