@@ -4,8 +4,9 @@ import { Chessground } from './node_modules/chessground/chessground.js';
 // fetch with authorization token
 // const url = 'http://yowking.yeoldwizard.com'
 // const url = 'https://localhost:8443'
+// const url = 'http://yowking.localhost'
 const url = 'https://yowking.localhost'
-// const url = 'http://localhost:8082'
+// const url = 'http://localhost:8083'
 const lichessToken = localStorage.getItem('lichessToken')
 let yowKingToken = null
 const players = [
@@ -14,6 +15,10 @@ const players = [
   'Petrosian', 'Marshall', 'Lasker', 'Steinitz', 'Euwe', 'Polgar',
   'Evans', 'Wizard'
 ]
+// const players = []
+
+
+
 // const players = [
 //   'Fischer', 'Karpov', 'Tal', 'Morphy', 'Alekhine', 'Anand', 
 //   'Anderssen', 'Blackburne', 'Kramnik', 'Capablanca',
@@ -24,9 +29,11 @@ const players = [
 //   'b1c3', 'b8c6', 'g1f3', 'a7a6', 'f1e2', 'd5c4'
 // ]
 const premoves = []
-// let players = ['Fischer', 'Karpov', 'Tal', 'Morphy']
+// let players = ['Fischer', 'Karpov']
 
-
+players.sort(function() {
+  return .5 - Math.random()
+})
 
 const template = document.querySelector('#my-template')
 const tournamentRoom = document.querySelector('#tournament-room')
@@ -84,8 +91,8 @@ async function playGame(board) {
   const moves = []
   let heightSum = 0
   let depthSum = 0
-  let startTime = Date.now()
-  let endTime = Date.now()
+  let startTime = 0
+  let endTime = 0
   let lapseTime = 0
   let baseDepth
   
@@ -100,13 +107,14 @@ async function playGame(board) {
       console.log('error', err)
       continue
     }
-    
+    endTime = Date.now()
+    lapseTime = endTime - startTime    
 
     moves.push(move.coordinateMove)
     board.makeMove(move.coordinateMove)
     player = player === whitePlayer ? blackPlayer : whitePlayer
 
-
+    board.updateTime(`${lapseTime}ms`)
     if (!baseDepth) baseDepth = move.depth
     if (move.depth < baseDepth) baseDepth = move.depth
     if (!move.depth) {
@@ -151,7 +159,7 @@ async function playGame(board) {
   const drawType = getDrawType(board.game)
   console.log('0-0')
   console.log(`draw by ${drawType}`)
-  board.updateBoard(`0-0 ${drawType}`)
+  board.updateScore(`0-0 ${drawType}`)
 
 }
 
